@@ -8,7 +8,7 @@ using namespace std;
 #define LOG(x) cout << x << "\t:" << __LINE__ << endl;
 
 struct ItemSet {
-    unordered_set<int> items;
+    set<int> items;
 
     ItemSet() {
     }
@@ -28,6 +28,10 @@ struct ItemSet {
     }
 
     bool operator==(const ItemSet &other) const;
+
+    int size() const {
+        return items.size();
+    }
 
     ItemSet setUnion(const ItemSet &other) const {
         ItemSet res;
@@ -56,19 +60,19 @@ struct ItemSet {
         return items.find(value) != items.end();
     }
 
-    unordered_set<int>::iterator begin()  {
+    set<int>::iterator begin()  {
         return items.begin();
     }
 
-    unordered_set<int>::iterator end()  {
+    set<int>::iterator end()  {
         return items.end();
     }
 
-    unordered_set<int>::const_iterator cbegin() const {
+    set<int>::const_iterator cbegin() const {
         return items.cbegin();
     }
 
-    unordered_set<int>::const_iterator cend() const  {
+    set<int>::const_iterator cend() const  {
         return items.cend();
     }
 };
@@ -196,7 +200,6 @@ unordered_set<ItemSet> filterCandidates(
     int c;
     for(auto it = candidates.cbegin(); it != candidates.cend(); it++) {
         c = getCount(*it, db);
-        D(c)
         if (c >= SUPPORT * db.size()) {
             res.insert(*it);
         }
@@ -205,25 +208,72 @@ unordered_set<ItemSet> filterCandidates(
     return res;
 }
 
-unordered_set<ItemSet> getNextRankCandidates(
+
+/**
+ is - k-element set
+ frequent - all frequent (k-1)-element sets
+ returns true iff all (k-1) subsets of is are in frequent
+*/
+bool isFrequentItemSet(const ItemSet &is, const unordered_set<ItemSet> &frequent) {
+    int numSubsetsInFrequent = 0;
+
+    for(auto it = frequent.cbegin(); it != frequent.cend(); it++) {
+        if(is.isSubset(*it)) {
+            numSubsetsInFrequent++;
+        }
+    }
+
+    return numSubsetsInFrequent == is.size();
+}
+
+unordered_set<ItemSet> getNextRankCandidates (
                             const unordered_set<ItemSet> &currRank,
                             const unordered_set<ItemSet> &singleElements) {
 
     unordered_set<ItemSet> nextRank;
-    for (auto it = currRank.cbegin(); it != currRank.cend(); it++) {
+    //LOG("1");
+    ItemSet nextRankSet;
 
+    for (auto it = currRank.cbegin(); it != currRank.cend(); it++) {
+    //LOG("2")
+        for(auto itSingle = singleElements.cbegin(); itSingle != singleElements.cend(); itSingle++) {
+            if(!it->isSubset(*itSingle)) {
+                nextRankSet = it->setUnion(*itSingle);
+                //LOG("t")
+                //nextRankSet.print();
+                //itSingle->print();
+                if(isFrequentItemSet(nextRankSet, currRank)) {
+                    nextRank.insert(nextRankSet);
+                }
+            }
+        }
     }
+
+    return nextRank;
 }
 
 void apriori() {
-    const double SUPPORT = 5.0 / 9.0;
+    const double SUPPORT = 2.0 / 9.0;
 
     DB* db = read();
 
     auto singleItems = getSingleItems(db);
     print(singleItems);
+    auto rank1 = filterCandidates(singleItems, *db, SUPPORT);
 
-    singleItems = filterCandidates(singleItems, *db, SUPPORT);
+    LOG("single");
+    print(singleItems);
+
+    LOG("rank1");
+    print(rank1);
+
+
+    auto rank2 = getNextRankCandidates(rank1, singleItems);
+    rank2 = filterCandidates(rank2, *db, SUPPORT);
+
+    LOG("rank2");
+    print(rank2);
+
     //LOG("filtered")
     //print(singleItems);
     //db->print();
