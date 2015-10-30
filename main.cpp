@@ -108,6 +108,15 @@ bool ItemSet::operator==(const ItemSet &other) const {
      return true;
 }
 
+struct AssociationRule {
+    ItemSet left, right;
+
+    AssociationRule(ItemSet left, ItemSet right) {
+        this->left = left;
+        this->right = right;
+    }
+};
+
 struct DB {
     vector<ItemSet> transactions;
 
@@ -138,10 +147,10 @@ struct DB {
     }
 };
 
-DB* read() {
+void read(DB &db) {
     int n;
     cin >> n;
-    DB* res = new DB();
+
     for(int i = 0; i < n; i++) {
         int k, el;
         ItemSet t;
@@ -151,19 +160,17 @@ DB* read() {
             t.items.insert(el);
         }
 
-        res->transactions.push_back(t);
+        db.transactions.push_back(t);
     }
-
-    return res;
 }
 
-unordered_set<ItemSet> getSingleItems(DB* db) {
+unordered_set<ItemSet> getSingleItems(const DB &db) {
     unordered_set<ItemSet> res;
 
     int itemsArray[1];
 
-    for(int i = 0; i < db->transactions.size(); i++) {
-        auto items = db->transactions[i];
+    for(int i = 0; i < db.transactions.size(); i++) {
+        auto items = db.transactions[i];
 
         for(auto it = items.cbegin(); it != items.cend(); it++) {
             itemsArray[0] = *it;
@@ -252,33 +259,47 @@ unordered_set<ItemSet> getNextRankCandidates (
     return nextRank;
 }
 
-void apriori() {
-    const double SUPPORT = 2.0 / 9.0;
 
-    DB* db = read();
+vector< unordered_set<ItemSet> > getFrequentItemsetsByRank (const DB &db,const double SUPPORT) {
 
     auto singleItems = getSingleItems(db);
-    print(singleItems);
-    auto rank1 = filterCandidates(singleItems, *db, SUPPORT);
 
-    LOG("single");
-    print(singleItems);
+    vector< unordered_set<ItemSet> > ranks;
 
-    LOG("rank1");
-    print(rank1);
+    auto rank1 = filterCandidates(singleItems, db, SUPPORT);
+    ranks.push_back(rank1);
+    while(true) {
+        auto currRank = getNextRankCandidates(ranks.back(), singleItems);
+        currRank = filterCandidates(currRank, db, SUPPORT);
+        if(currRank.size() == 0) {
+            break;
+        }
+        ranks.push_back(currRank);
+    }
 
+}
 
-    auto rank2 = getNextRankCandidates(rank1, singleItems);
-    rank2 = filterCandidates(rank2, *db, SUPPORT);
+vector<AssociationRule> generateAssociationRules(
+                            const vector< unordered_set<ItemSet> > &frequentRank,
+                            const DB &db,
+                            const double MIN_CONFIDENCE) {
+    for(auto rankIt = frequentRank.cbegin(); rankIt != frequentRank.cend(); rankIt++) {
+        for(auto it = rankIt->cbegin(); it != rankIt->cend(); it++) {
+            // TODO Implement
+        }
+    }
+}
 
-    LOG("rank2");
-    print(rank2);
+void apriori() {
+    const double SUPPORT = 2.0 / 9.0;
+    const double MIN_CONFIDENCE = .7;
 
-    //LOG("filtered")
-    //print(singleItems);
-    //db->print();
+    DB db;
+    read(db);
 
+    vector< unordered_set<ItemSet> > frequentRank = getFrequentItemsetsByRank(db, SUPPORT);
 
+    vector<AssociationRule> rules = generateAssociationRules(frequentRank, db, MIN_CONFIDENCE);
 }
 
 int main () {
