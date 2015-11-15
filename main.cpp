@@ -2,11 +2,20 @@
 #include <vector>
 #include <set>
 #include <unordered_set>
+#include <string>
+#include <sstream>
+#include <algorithm>
 using namespace std;
 
 #define D(x) cout << #x << " = " << x << " at " << __LINE__ << endl;
 #define LOG(x) cout << x << "\t:" << __LINE__ << endl;
 
+string to_string(int i) {
+    stringstream ss;
+    ss << i;
+    string str = ss.str();
+    return str;
+}
 
 struct ItemSet {
     set<int> items;
@@ -22,10 +31,19 @@ struct ItemSet {
     }
 
     void print() const {
-        for(auto it = items.cbegin(); it != items.cend(); it++) {
-            cout << *it << " ";
+        cout << toString();
+    }
+
+    string toString() const {
+        string out = "(";
+        for(auto it : items) {
+            if(*(items.cbegin()) != it) {
+                out+= " ";
+            }
+            out += to_string(it);
         }
-        cout << endl;
+        out += ")";
+        return out;
     }
 
     bool operator==(const ItemSet &other) const;
@@ -45,6 +63,10 @@ struct ItemSet {
         }
 
         return res;
+    }
+
+    void clear() {
+        this->items.clear();
     }
 
     bool isSubset(const ItemSet &other) const {
@@ -111,10 +133,18 @@ bool ItemSet::operator==(const ItemSet &other) const {
 
 struct AssociationRule {
     ItemSet left, right;
+    double confidence;
 
-    AssociationRule(ItemSet left, ItemSet right) {
+    AssociationRule(ItemSet left, ItemSet right, double confidence) {
         this->left = left;
         this->right = right;
+        this->confidence = confidence;
+    }
+
+    string toString() const {
+        int confPro = (int)(confidence*100);
+        string out = left.toString() + " -> " + right.toString() + " :" + to_string(confPro) + "%";
+        return out;
     }
 };
 
@@ -124,6 +154,7 @@ struct DB {
     void print() const {
         for(int i = 0; i < transactions.size(); i++) {
             transactions[i].print();
+            cout << endl;
         }
     }
 
@@ -181,10 +212,15 @@ unordered_set<ItemSet> getSingleItems(const DB &db) {
     return res;
 }
 
-void print(unordered_set<ItemSet> s) {
-    for(auto it = s.cbegin(); it != s.cend(); it++) {
-        it->print();
+void print(const unordered_set<ItemSet> &s) {
+    for(auto it : s) {
+        cout << it.toString() << endl;
     }
+    /*
+    for(auto it = s.cbegin(); it != s.cend(); it++) {
+        cout <<
+        it->print();
+    }*/
 }
 
 int getCount(const ItemSet &s, const DB &db) {
@@ -272,7 +308,6 @@ vector< unordered_set<ItemSet> > getFrequentItemsetsByRank (const DB &db,const d
     ranks.push_back(rank1);
 
     while(true) {
-        LOG("x")
         auto currRank = getNextRankCandidates(ranks.back(), singleItems);
         currRank = filterCandidates(currRank, db, SUPPORT);
         if(currRank.size() == 0) {
@@ -290,31 +325,83 @@ vector<AssociationRule> generateAssociationRules(
                             const double MIN_CONFIDENCE) {
 
     vector<AssociationRule> rules;
+    ItemSet left, right;
+    int leftCount, allCount;
+    double currConfidence;
 
     for(auto rankIt = frequentRank.cbegin(); rankIt != frequentRank.cend(); rankIt++) {
         for(auto it = rankIt->cbegin(); it != rankIt->cend(); it++) {
-            // TODO Implement
+
+
+            for (int currSubsetMask = (1 << it->size())-2; currSubsetMask > 0; currSubsetMask--) {
+                int idx = 0;
+
+                left.clear();
+                right.clear();
+
+                for(auto elIt = it->cbegin();
+                        elIt != it->cend();
+                        idx++, elIt++) {
+
+                    if((currSubsetMask >> idx) & 1) {
+                        left.items.insert(*elIt);
+                    } else {
+                        right.items.insert(*elIt);
+                    }
+                }
+
+                leftCount = getCount(left, db);
+                allCount = getCount(*it, db); // TODO: move out of for
+
+                currConfidence = (double)allCount / (double)leftCount;
+                if(currConfidence >= MIN_CONFIDENCE) {
+                    rules.push_back(AssociationRule(left, right, currConfidence));
+                }
+            }
         }
     }
 
     return rules;
 }
 
+bool associationRuleCompare (const AssociationRule &l, const AssociationRule &r) {
+    return l.confidence > r.confidence;
+}
+
 void apriori() {
     const double SUPPORT = 2.0 / 9.0;
-    const double MIN_CONFIDENCE = .7;
+    const double MIN_CONFIDENCE = .3;
 
     DB db;
     read(db);
 
+    cout << "Database is: \n";
+    db.print();
+    cout << endl;
+
     vector< unordered_set<ItemSet> > frequentRank = getFrequentItemsetsByRank(db, SUPPORT);
 
+    cout << "Frequent tuples are: \n";
+    for(auto it : frequentRank) {
+        print(it);
+    }
+    cout << endl;
+
     vector<AssociationRule> rules = generateAssociationRules(frequentRank, db, MIN_CONFIDENCE);
+
+    sort(rules.begin(), rules.end(), associationRuleCompare);
+
+    cout << "Association rules are: \n";
+    for(auto rule : rules) {
+        cout << rule.toString() << endl;
+    }
+    cout << endl;
+
 }
 
 int main () {
+
     apriori();
 
-    LOG("end of main")
     return 0;
 }
