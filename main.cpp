@@ -7,6 +7,7 @@ using namespace std;
 #define D(x) cout << #x << " = " << x << " at " << __LINE__ << endl;
 #define LOG(x) cout << x << "\t:" << __LINE__ << endl;
 
+
 struct ItemSet {
     set<int> items;
 
@@ -266,9 +267,12 @@ vector< unordered_set<ItemSet> > getFrequentItemsetsByRank (const DB &db,const d
 
     vector< unordered_set<ItemSet> > ranks;
 
+
     auto rank1 = filterCandidates(singleItems, db, SUPPORT);
     ranks.push_back(rank1);
+
     while(true) {
+        LOG("x")
         auto currRank = getNextRankCandidates(ranks.back(), singleItems);
         currRank = filterCandidates(currRank, db, SUPPORT);
         if(currRank.size() == 0) {
@@ -277,17 +281,23 @@ vector< unordered_set<ItemSet> > getFrequentItemsetsByRank (const DB &db,const d
         ranks.push_back(currRank);
     }
 
+    return ranks;
 }
 
 vector<AssociationRule> generateAssociationRules(
                             const vector< unordered_set<ItemSet> > &frequentRank,
                             const DB &db,
                             const double MIN_CONFIDENCE) {
+
+    vector<AssociationRule> rules;
+
     for(auto rankIt = frequentRank.cbegin(); rankIt != frequentRank.cend(); rankIt++) {
         for(auto it = rankIt->cbegin(); it != rankIt->cend(); it++) {
             // TODO Implement
         }
     }
+
+    return rules;
 }
 
 void apriori() {
@@ -304,5 +314,7 @@ void apriori() {
 
 int main () {
     apriori();
+
+    LOG("end of main")
     return 0;
 }
